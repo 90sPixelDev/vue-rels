@@ -35,8 +35,6 @@ const addPost = () => {
   newPost.value.postDesc = ''
 }
 
-//test
-
 const removePost = (postToDelete: Post) => {
   postList.value = postList.value.filter((pI) => pI.postId !== postToDelete.postId)
 }
