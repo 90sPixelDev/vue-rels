@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
+import Post from './components/Post.vue'
 
-type Post = {
+export type Post = {
   postId: Date
   postName: string
   postDesc: string
@@ -11,6 +12,8 @@ type Post = {
 const isAddingPost = ref(false)
 
 const postList: Ref<Post[]> = ref([])
+const filteredPostList: Ref<Post[]> = ref([])
+const postSearchText = ref('')
 
 const newPost = ref({
   postId: new Date(),
@@ -19,10 +22,13 @@ const newPost = ref({
 })
 
 const addPost = () => {
+  postSearchText.value = ''
   if (!newPost.value.postName || !newPost.value.postDesc) return
 
   newPost.value.postName.trim()
   newPost.value.postDesc.trim()
+
+  if (newPost.value.postName.length < 2 || newPost.value.postDesc.length < 5) return
 
   const newPostData: Post = {
     postId: new Date(),
@@ -38,6 +44,40 @@ const addPost = () => {
 const removePost = (postToDelete: Post) => {
   postList.value = postList.value.filter((pI) => pI.postId !== postToDelete.postId)
 }
+
+const searchValidator = () => {
+  if (postSearchText.value === null) return false
+  postSearchText.value.trim()
+  if (postSearchText.value.length < 3) return false
+  else return true
+}
+
+const searchPosts = () => {
+  if (searchValidator() === false) return
+
+  filteredPostList.value = postList.value.filter(
+    (postItem) =>
+      postItem.postDesc.toLocaleLowerCase().includes(postSearchText.value.toLocaleLowerCase()) ||
+      postItem.postName.toLocaleLowerCase().includes(postSearchText.value.toLocaleLowerCase()),
+  )
+}
+
+watch(postSearchText, () => {
+  searchPosts()
+})
+watch(
+  postList,
+  () => {
+    localStorage.setItem('posts', JSON.stringify(postList.value))
+  },
+  { deep: true },
+)
+onMounted(() => {
+  const saved = localStorage.getItem('posts')
+  if (saved) {
+    postList.value = JSON.parse(saved)
+  }
+})
 </script>
 
 <template>
@@ -51,14 +91,26 @@ const removePost = (postToDelete: Post) => {
       <v-divider></v-divider>
 
       <div class="posts-text-top">
-        <h2>Posts</h2>
+        <div class="posts-top">
+          <h2 class="post-text">Posts</h2>
+          <v-text-field
+            class="search-input"
+            type="text"
+            v-model="postSearchText"
+            placeholder="Search Posts..."
+            clearable
+            prepend-inner-icon="mdi-magnify"
+            hint="You may search by post name or post description here"
+          />
+        </div>
+
         <div v-if="!isAddingPost">
           <v-btn class="add-post-bttn" @click="() => (isAddingPost = true)">Add New Post</v-btn>
         </div>
       </div>
 
       <v-expand-transition>
-        <div v-if="isAddingPost" class="new-post-section" v-expand-x-transition>
+        <div v-if="isAddingPost" class="new-post-section">
           <h3>New Post</h3>
           <div class="input-container">
             <v-text-field type="text" placeholder="Post Name" v-model="newPost.postName" />
@@ -66,52 +118,44 @@ const removePost = (postToDelete: Post) => {
               class="input-desc"
               type="text"
               placeholder="Post Description"
+              maxlength="300"
+              counter
               v-model="newPost.postDesc"
+              hint="Press CTRL + ENTER to post without having to click the button"
+              @keyup.ctrl.enter="addPost"
             />
           </div>
           <div>
-            <v-btn class="post-bttn" @click="addPost" v-on:keyup.enter="addPost" text="Post" />
+            <v-btn class="post-bttn" @click="addPost" text="Post" />
             <v-btn class="cancel-bttn" @click="() => (isAddingPost = false)">Cancel</v-btn>
           </div>
         </div>
       </v-expand-transition>
     </div>
 
-    <v-item-group class="post-list">
+    <v-item-group>
       <v-empty-state
         v-show="postList.length < 1"
         headline="No Posts Yet"
         text="You haven't added any posts yet. When you do, they'll appear here."
         title="Add some posts!"
       ></v-empty-state>
+      <v-empty-state
+        v-show="postSearchText != null && filteredPostList.length < 1 && postSearchText.length > 3"
+        headline="404 No posts found"
+        text="Try searching with other keywords!"
+        title="Your search inquiery did not yield any posts."
+      ></v-empty-state>
 
       <v-item
-        class="post-item"
-        v-for="post in postList"
-        :key="post.postName + post.postId"
-        rounded="lg"
+        v-if="postSearchText != null && postSearchText.length > 3"
+        v-for="post in filteredPostList"
+        :key="'filtered-' + post.postName + post.postId"
       >
-        <v-card
-          class="mx-auto post"
-          rounded="lg"
-          :subtitle="post.postId.toLocaleDateString() + ' ' + post.postId.toLocaleTimeString()"
-        >
-          <template v-slot:title>
-            <div class="title-area">
-              <span class="font-weight-black">{{ post.postName }}</span>
-              <v-btn
-                class="ma-2"
-                color="red-lighten-2"
-                icon="$delete"
-                variant="text"
-                @click="removePost(post)"
-              ></v-btn>
-            </div>
-          </template>
-          <v-card-text class="bg-surface-light pt-4">
-            {{ post.postDesc }}
-          </v-card-text>
-        </v-card>
+        <Post :postItem="post" :removePost="removePost" />
+      </v-item>
+      <v-item v-else v-for="post in postList" :key="post.postName + post.postId">
+        <Post :postItem="post" :removePost="removePost" />
       </v-item>
     </v-item-group>
   </div>
@@ -125,6 +169,21 @@ const removePost = (postToDelete: Post) => {
 
 .add-post-bttn {
   font-size: 0.8rem;
+}
+
+.posts-top {
+  display: flex;
+  margin-top: 1rem;
+}
+
+.post-text {
+  display: block;
+  flex: 0.1 1 auto;
+  text-align: center;
+}
+
+.search-input {
+  flex: 1 0;
 }
 
 /* NEW POST INPUT AREA */
@@ -149,13 +208,6 @@ textarea {
 }
 .post-item + .post-item {
   margin-top: 3rem;
-}
-
-.title-area {
-  display: flex;
-  align-items: center;
-
-  justify-content: space-between;
 }
 
 .post-bttn {
