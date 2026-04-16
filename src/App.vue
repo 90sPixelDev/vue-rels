@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import Post from './components/Post.vue'
+import SearchTextInput from './components/SearchTextInput.vue'
 
 export type Post = {
   postId: Date
@@ -10,10 +11,9 @@ export type Post = {
 }
 
 const isAddingPost = ref(false)
-
+const isSearching = ref(false)
 const postList: Ref<Post[]> = ref([])
 const filteredPostList: Ref<Post[]> = ref([])
-const postSearchText = ref('')
 
 const newPost = ref({
   postId: new Date(),
@@ -22,7 +22,6 @@ const newPost = ref({
 })
 
 const addPost = () => {
-  postSearchText.value = ''
   if (!newPost.value.postName || !newPost.value.postDesc) return
 
   newPost.value.postName.trim()
@@ -45,26 +44,27 @@ const removePost = (postToDelete: Post) => {
   postList.value = postList.value.filter((pI) => pI.postId !== postToDelete.postId)
 }
 
-const searchValidator = () => {
-  if (postSearchText.value === null) return false
-  postSearchText.value.trim()
-  if (postSearchText.value.length < 3) return false
+const searchValidator = (searchText: string) => {
+  if (searchText === null) return false
+  searchText.trim()
+  if (searchText.length < 3) return false
   else return true
 }
 
-const searchPosts = () => {
-  if (searchValidator() === false) return
+const searchingToggle = (searching: boolean) => {
+  isSearching.value = searching
+}
+
+const searchPosts = (searchText: string) => {
+  if (searchValidator(searchText) === false) return
 
   filteredPostList.value = postList.value.filter(
     (postItem) =>
-      postItem.postDesc.toLocaleLowerCase().includes(postSearchText.value.toLocaleLowerCase()) ||
-      postItem.postName.toLocaleLowerCase().includes(postSearchText.value.toLocaleLowerCase()),
+      postItem.postDesc.toLocaleLowerCase().includes(searchText.toLocaleLowerCase()) ||
+      postItem.postName.toLocaleLowerCase().includes(searchText.toLocaleLowerCase()),
   )
 }
 
-watch(postSearchText, () => {
-  searchPosts()
-})
 watch(
   postList,
   () => {
@@ -88,20 +88,12 @@ onMounted(() => {
         This web app is created for me to understand Vue and it's environment as well as to log
         posts on what I learned.
       </p>
-      <v-divider></v-divider>
+      <v-divider />
 
       <div class="posts-text-top">
         <div class="posts-top">
           <h2 class="post-text">Posts</h2>
-          <v-text-field
-            class="search-input"
-            type="text"
-            v-model="postSearchText"
-            placeholder="Search Posts..."
-            clearable
-            prepend-inner-icon="mdi-magnify"
-            hint="You may search by post name or post description here"
-          />
+          <SearchTextInput @toggeSearching="searchingToggle" @runSearchPost="searchPosts" />
         </div>
 
         <div v-if="!isAddingPost">
@@ -141,14 +133,14 @@ onMounted(() => {
         title="Add some posts!"
       ></v-empty-state>
       <v-empty-state
-        v-show="postSearchText != null && filteredPostList.length < 1 && postSearchText.length > 3"
+        v-show="isSearching && filteredPostList.length < 1"
         headline="404 No posts found"
         text="Try searching with other keywords!"
         title="Your search inquiery did not yield any posts."
       ></v-empty-state>
 
       <v-item
-        v-if="postSearchText != null && postSearchText.length > 3"
+        v-if="isSearching"
         v-for="post in filteredPostList"
         :key="'filtered-' + post.postName + post.postId"
       >
