@@ -95,7 +95,7 @@ onMounted(() => {
       <div class="posts-text-top">
         <div class="posts-top">
           <h2 class="post-text">Posts</h2>
-          <SearchTextInput @toggeSearching="searchingToggle" @runSearchPost="searchPosts" />
+          <SearchTextInput @searchingToggle="searchingToggle" @runSearchPost="searchPosts" />
         </div>
 
         <div v-if="!isAddingPost">

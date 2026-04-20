@@ -19,7 +19,7 @@ const emit = defineEmits(['runSearchPost', 'searchingToggle'])
 const postSearchText = ref('')
 
 watch(postSearchText, () => {
-  if (postSearchText.value.length > 3) {
+  if (postSearchText.value !== null && postSearchText.value.length > 3) {
     emit('runSearchPost', postSearchText.value)
     emit('searchingToggle', true)
   } else emit('searchingToggle', false)
